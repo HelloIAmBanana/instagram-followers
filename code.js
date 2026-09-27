@@ -94,7 +94,7 @@ iDontFollowBack = [];
       return !followers.find(
         (follower) => follower.username === following.username
       );
-    }).filter((user)=>user.username!==username);;
+    }).filter((user)=>user.username!=="oshridagan");;
 
     console.log({ dontFollowMeBack });
 
