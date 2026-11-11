@@ -1,27 +1,24 @@
-const username = "תשים פה את היוזר שלך";
-
-function getCsrfToken() {
-  const match = document.cookie.match(/csrftoken=([^;]+)/);
-  return match ? match[1] : "";
-}
+const username = "היוזר ניים שלך";
 
 const IG_HEADERS = {
   "x-ig-app-id": "936619743392459",
   "x-asbd-id": "359341",
-  "x-csrftoken": getCsrfToken(),
   "x-requested-with": "XMLHttpRequest",
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+
 async function getUserId(uname) {
-  const res = await fetch(
-    `https://www.instagram.com/web/search/topsearch/?query=${uname}`,
-    { credentials: "include", headers: IG_HEADERS }
-  );
-  const json = await res.json();
-  const match = json.users
-    .map((u) => u.user)
-    .find((u) => u.username === uname);
-  return match ? match.pk : null;
+  const res = await fetch(`https://www.instagram.com/${uname}/`, {
+    credentials: "include",
+  });
+  const html = await res.text();
+  const match = html.match(/"profile_id":"(\d+)"/);
+  if (!match) {
+    throw new Error(`Couldn't find user id for "${uname}" (HTTP ${res.status})`);
+  }
+  return match[1];
 }
 
 let followers = [{ username: "", full_name: "" }];
@@ -46,14 +43,15 @@ iDontFollowBack = [];
     while (has_next) {
       await fetch(
         `https://www.instagram.com/api/v1/friendships/${userId}/followers/?count=50${
-          max_id ? `&max_id=${max_id}` : ""
+          max_id ? `&max_id=${encodeURIComponent(max_id)}` : ""
         }`,
         { credentials: "include", headers: IG_HEADERS }
       )
         .then((res) => res.json())
         .then((res) => {
+          if (res.status !== "ok") throw new Error(JSON.stringify(res));
           max_id = res.next_max_id || null;
-          has_next = Boolean(max_id);
+          has_next = Boolean(max_id) && res.has_more !== false;
           followers = followers.concat(
             res.users.map((u) => {
               return {
@@ -71,14 +69,15 @@ iDontFollowBack = [];
     while (has_next) {
       await fetch(
         `https://www.instagram.com/api/v1/friendships/${userId}/following/?count=50${
-          max_id ? `&max_id=${max_id}` : ""
+          max_id ? `&max_id=${encodeURIComponent(max_id)}` : ""
         }`,
         { credentials: "include", headers: IG_HEADERS }
       )
         .then((res) => res.json())
         .then((res) => {
+          if (res.status !== "ok") throw new Error(JSON.stringify(res));
           max_id = res.next_max_id || null;
-          has_next = Boolean(max_id);
+          has_next = Boolean(max_id) && res.has_more !== false;
           followings = followings.concat(
             res.users.map((u) => {
               return {
@@ -94,7 +93,7 @@ iDontFollowBack = [];
       return !followers.find(
         (follower) => follower.username === following.username
       );
-    }).filter((user)=>user.username!=="oshridagan");;
+    }).filter((user)=>user.username!==username);;
 
     console.log({ dontFollowMeBack });
 
